@@ -1,13 +1,15 @@
-// Inventory.tsx - Live inventory stock overview and management
+// Inventory.tsx - Warehouse inventory management and stock level tracking
 import { useState, useEffect, useContext } from 'react';
 import api from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 
 const Inventory = () => {
   const [inventory, setInventory] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [editId, setEditId] = useState<number | null>(null);
   const [newQty, setNewQty] = useState<number>(0);
+  const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState('');
   const [msg, setMsg] = useState('');
 
@@ -20,10 +22,14 @@ const Inventory = () => {
   const fetchInventory = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/inventory');
-      setInventory(res.data);
+      const [invRes, prodRes] = await Promise.all([
+        api.get('/inventory'),
+        api.get('/products'),
+      ]);
+      setInventory(invRes.data);
+      setProducts(prodRes.data);
     } catch (err) {
-      console.error(err);
+      console.error('Failed to load inventory', err);
       setError('Failed to load inventory');
     } finally {
       setLoading(false);
@@ -35,7 +41,7 @@ const Inventory = () => {
     setMsg('');
     try {
       await api.patch(`/inventory/${productId}`, { physical_quantity: Number(newQty) });
-      setMsg('Stock updated successfully');
+      setMsg('Stock level updated successfully in database.');
       setEditId(null);
       fetchInventory();
       setTimeout(() => setMsg(''), 3000);
@@ -44,73 +50,116 @@ const Inventory = () => {
     }
   };
 
+  // Combine product metadata (category, unit, price) with inventory
+  const combinedInventory = inventory.map(inv => {
+    const prod = products.find(p => p.product_code === inv.product_code);
+    return {
+      ...inv,
+      category: prod?.category || 'General',
+      unit: prod?.unit || 'Pieces',
+      base_price: prod?.base_price || 0,
+    };
+  });
+
+  const filteredInventory = combinedInventory.filter(item => 
+    item.product_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.category.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div>
-      {/* Header */}
+      {/* Page Header */}
       <div className="page-header">
         <div>
-          <h1 className="page-title">Inventory Stock</h1>
+          <h1 className="page-title">Stock & Availability</h1>
           <p className="page-description">
-            Available Quantity = Physical Quantity - Reserved Quantity
+            Live Warehouse Inventory: Available Stock = Physical Warehouse Quantity - Reserved for Confirmed Orders
           </p>
         </div>
       </div>
 
-      {msg && <div className="alert alert-success">{msg}</div>}
-      {error && <div className="alert alert-danger">{error}</div>}
+      {msg && <div className="app-alert app-alert-success">{msg}</div>}
+      {error && <div className="app-alert app-alert-danger">{error}</div>}
+
+      {/* Toolbar */}
+      <div className="toolbar-bar">
+        <div className="search-input-group">
+          <input 
+            type="text" 
+            className="form-control" 
+            placeholder="Search by Product Code, Name, Category..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+          />
+        </div>
+
+        <div className="records-count">
+          Showing {filteredInventory.length} of {inventory.length} products
+        </div>
+      </div>
 
       {/* Inventory Table */}
-      <div className="table-container">
+      <div className="table-wrapper attached-to-toolbar">
         <table>
           <thead>
             <tr>
-              <th>Product Code</th>
+              <th>SKU Code</th>
               <th>Product Name</th>
-              <th>Physical Qty</th>
-              <th>Reserved Qty</th>
-              <th>Available Qty</th>
-              {user?.role === 'ADMIN' && <th>Action</th>}
+              <th>Category</th>
+              <th>Unit</th>
+              <th className="text-right">Base Price (₹)</th>
+              <th className="text-right">Physical Stock</th>
+              <th className="text-right">Reserved Stock</th>
+              <th className="text-right">Available Stock</th>
+              {user?.role === 'ADMIN' && <th>Warehouse Action</th>}
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)' }}>
-                  Loading inventory...
+                <td colSpan={9} className="text-center" style={{ padding: '1.5rem', color: 'var(--text-muted)' }}>
+                  Loading warehouse stock data...
                 </td>
               </tr>
-            ) : inventory.length === 0 ? (
+            ) : filteredInventory.length === 0 ? (
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)' }}>
-                  No inventory records found.
+                <td colSpan={9} className="text-center" style={{ padding: '2rem', color: 'var(--text-muted)' }}>
+                  No inventory records match the search filter.
                 </td>
               </tr>
             ) : (
-              inventory.map((inv: any) => (
+              filteredInventory.map((inv: any) => (
                 <tr key={inv.id}>
-                  <td><strong>{inv.product_code}</strong></td>
-                  <td>{inv.product_name}</td>
-                  <td>
+                  <td className="code-cell">{inv.product_code}</td>
+                  <td><strong>{inv.product_name}</strong></td>
+                  <td>{inv.category}</td>
+                  <td>{inv.unit}</td>
+                  <td className="text-right code-cell">₹{Number(inv.base_price).toFixed(2)}</td>
+                  <td className="text-right">
                     {editId === inv.id ? (
                       <input
                         type="number"
                         min="0"
                         className="form-control"
-                        style={{ width: '90px', padding: '0.2rem 0.4rem' }}
+                        style={{ width: '80px', display: 'inline-block', padding: '0.2rem 0.35rem', textAlign: 'right' }}
                         value={newQty}
                         onChange={e => setNewQty(Number(e.target.value))}
                       />
                     ) : (
-                      inv.physical_quantity
+                      <strong>{inv.physical_quantity}</strong>
                     )}
                   </td>
-                  <td style={{ color: inv.reserved_quantity > 0 ? 'var(--warning-text)' : 'inherit' }}>
+                  <td className="text-right" style={{ color: inv.reserved_quantity > 0 ? 'var(--status-pending-text)' : 'inherit', fontWeight: inv.reserved_quantity > 0 ? 700 : 400 }}>
                     {inv.reserved_quantity}
                   </td>
-                  <td>
-                    <strong style={{ color: inv.available_quantity > 0 ? 'var(--success-text)' : 'var(--danger-text)' }}>
-                      {inv.available_quantity}
-                    </strong>
+                  <td className="text-right">
+                    <span 
+                      className={`status-tag ${inv.available_quantity > 0 ? 'status-accepted' : 'status-rejected'}`}
+                      style={{ minWidth: '40px', textAlign: 'center' }}
+                    >
+                      {inv.available_quantity} {inv.unit}
+                    </span>
                   </td>
                   {user?.role === 'ADMIN' && (
                     <td>
@@ -137,7 +186,7 @@ const Inventory = () => {
                             setNewQty(inv.physical_quantity);
                           }}
                         >
-                          Update Stock
+                          Adjust
                         </button>
                       )}
                     </td>

@@ -1,4 +1,4 @@
-// Login.tsx - Clean student project login page
+// Login.tsx - Clean internal business application login
 import { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
@@ -35,12 +35,12 @@ const Login = () => {
   };
 
   return (
-    <div className="login-wrapper">
-      <div className="login-card">
-        <h2 className="login-title">PERN ERP Application</h2>
-        <p className="login-subtitle">Sign in with your assigned role credentials</p>
+    <div className="login-screen">
+      <div className="login-form-box">
+        <h1 className="login-app-title">Manufacturing ERP</h1>
+        <p className="login-app-subtitle">Employee Access Portal</p>
         
-        {error && <div className="alert alert-danger">{error}</div>}
+        {error && <div className="app-alert app-alert-danger">{error}</div>}
         
         <form onSubmit={handleSubmit}>
           <div className="form-group">
@@ -50,7 +50,7 @@ const Login = () => {
               className="form-control" 
               value={email}
               onChange={e => setEmail(e.target.value)}
-              placeholder="Enter your email"
+              placeholder="e.g. sales@example.com"
               required
             />
           </div>
@@ -62,7 +62,7 @@ const Login = () => {
               className="form-control" 
               value={password}
               onChange={e => setPassword(e.target.value)}
-              placeholder="Enter password"
+              placeholder="••••••••"
               required
             />
           </div>
@@ -70,29 +70,35 @@ const Login = () => {
           <button 
             type="submit" 
             className="btn btn-primary" 
-            style={{ width: '100%', marginTop: '0.5rem' }}
+            style={{ width: '100%', marginTop: '0.65rem', padding: '0.55rem' }}
             disabled={loading}
           >
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? 'Authenticating...' : 'Sign In'}
           </button>
         </form>
 
-        <div className="test-accounts-box">
-          <p>Demo Login Accounts (Click to autofill):</p>
-          <div 
-            className="test-account-row"
+        <div className="login-demo-helper">
+          <div style={{ fontWeight: 700, color: 'var(--text-heading)', marginBottom: '0.35rem' }}>
+            Demo User Accounts:
+          </div>
+          
+          <button 
+            type="button" 
+            className="demo-role-btn"
             onClick={() => handleFillDemo('sales@example.com', 'sales123')}
           >
-            <strong>Sales User:</strong>
-            <code>sales@example.com / sales123</code>
-          </div>
-          <div 
-            className="test-account-row"
+            <span><strong>Sales User</strong></span>
+            <code style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>sales@example.com / sales123</code>
+          </button>
+
+          <button 
+            type="button" 
+            className="demo-role-btn"
             onClick={() => handleFillDemo('admin@example.com', 'admin123')}
           >
-            <strong>Admin User:</strong>
-            <code>admin@example.com / admin123</code>
-          </div>
+            <span><strong>Admin User</strong></span>
+            <code style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>admin@example.com / admin123</code>
+          </button>
         </div>
       </div>
     </div>

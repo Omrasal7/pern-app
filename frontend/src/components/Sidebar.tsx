@@ -1,4 +1,4 @@
-// Sidebar.tsx - Simple left navigation bar
+// Sidebar.tsx - Authentic business software left navigation
 import { useContext } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
@@ -17,52 +17,56 @@ const Sidebar = () => {
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
-        <h1>PERN ERP System</h1>
-        <p>Manufacturing & Supply Chain</p>
+        <div className="sidebar-title">MANUFACTURING ERP</div>
+        <div className="sidebar-subtitle">Internal Business Portal</div>
       </div>
 
       <nav className="sidebar-nav">
+        <div className="nav-group-label">Work</div>
+
         <NavLink 
           to="/enquiries" 
-          className={({ isActive }) => `nav-link-item ${isActive ? 'active' : ''}`}
+          className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
         >
-          Customer Enquiries
+          Enquiries
         </NavLink>
 
         <NavLink 
           to="/quotations" 
-          className={({ isActive }) => `nav-link-item ${isActive ? 'active' : ''}`}
+          className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
         >
           Quotations
         </NavLink>
 
         <NavLink 
           to="/sales-orders" 
-          className={({ isActive }) => `nav-link-item ${isActive ? 'active' : ''}`}
+          className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
         >
           Sales Orders
         </NavLink>
 
+        <div className="nav-group-label" style={{ marginTop: '0.65rem' }}>Inventory</div>
+
         <NavLink 
           to="/inventory" 
-          className={({ isActive }) => `nav-link-item ${isActive ? 'active' : ''}`}
+          className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
         >
-          Inventory Stock
+          Stock & Availability
         </NavLink>
       </nav>
 
       <div className="sidebar-footer">
-        <div className="user-badge">
-          <div>{user.name || user.email}</div>
-          <span className="role-pill">{user.role}</span>
+        <div className="user-profile">
+          <div className="user-email">{user.name || user.email}</div>
+          <div className="user-role-tag">{user.role}</div>
         </div>
 
         <button 
           onClick={handleLogout} 
           className="btn btn-secondary btn-sm" 
-          style={{ width: '100%' }}
+          style={{ width: '100%', padding: '0.35rem 0.5rem', fontSize: '0.76rem' }}
         >
-          Logout
+          Sign Out
         </button>
       </div>
     </aside>

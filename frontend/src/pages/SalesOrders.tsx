@@ -1,4 +1,4 @@
-// SalesOrders.tsx - Manage sales orders, stock reservation, and dispatch
+// SalesOrders.tsx - Sales order processing, inventory reservation, and dispatch
 import { useState, useEffect, useContext } from 'react';
 import api from '../services/api';
 import { AuthContext } from '../context/AuthContext';
@@ -14,6 +14,10 @@ const SalesOrders = () => {
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
+  // Search & Filter
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+
   const { user } = useContext(AuthContext);
 
   useEffect(() => {
@@ -26,7 +30,7 @@ const SalesOrders = () => {
       const res = await api.get('/sales-orders');
       setOrders(res.data);
     } catch (err) {
-      console.error('Failed to fetch sales orders', err);
+      console.error('Failed to load sales orders', err);
     } finally {
       setTableLoading(false);
     }
@@ -37,7 +41,7 @@ const SalesOrders = () => {
     setSuccessMsg('');
     try {
       await api.post(`/sales-orders/${id}/confirm`);
-      setSuccessMsg('Sales Order confirmed! Inventory reserved.');
+      setSuccessMsg('Sales order confirmed! Stock reserved in database.');
       fetchOrders();
       setTimeout(() => setSuccessMsg(''), 4000);
     } catch (err: any) {
@@ -53,12 +57,12 @@ const SalesOrders = () => {
 
     try {
       await api.post(`/sales-orders/${dispatchModal.orderId}/dispatch`, {
-        dispatch_number: `DSP-${Date.now().toString().slice(-6)}`,
+        dispatch_number: `DSP-${Date.now().toString().slice(-5)}`,
         vehicle_number: dispatchModal.vehicle,
         driver_name: dispatchModal.driver,
       });
 
-      setSuccessMsg('Sales Order dispatched! Stock deducted from inventory.');
+      setSuccessMsg('Sales order dispatched! Inventory updated in transaction.');
       setDispatchModal({ orderId: null, vehicle: '', driver: '' });
       fetchOrders();
       setTimeout(() => setSuccessMsg(''), 4000);
@@ -67,30 +71,42 @@ const SalesOrders = () => {
     }
   };
 
+  // Filtered List
+  const filteredOrders = orders.filter(order => {
+    const matchesSearch = 
+      order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (order.customer?.company_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (order.customer?.city || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'ALL' || order.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
   return (
     <div>
-      {/* Header */}
+      {/* Page Header */}
       <div className="page-header">
         <div>
           <h1 className="page-title">Sales Orders</h1>
-          <p className="page-description">Confirm orders to reserve inventory, and dispatch products</p>
+          <p className="page-description">Manage confirmed customer orders, perform inventory reservations, and dispatch shipments</p>
         </div>
       </div>
 
-      {successMsg && <div className="alert alert-success">{successMsg}</div>}
-      {error && <div className="alert alert-danger">{error}</div>}
+      {successMsg && <div className="app-alert app-alert-success">{successMsg}</div>}
+      {error && <div className="app-alert app-alert-danger">{error}</div>}
 
-      {/* Dispatch Box */}
+      {/* Dispatch Details Panel */}
       {dispatchModal.orderId && (
-        <div className="content-box" style={{ borderColor: '#86efac', background: '#f0fdf4' }}>
-          <h2 className="box-title" style={{ color: '#166534' }}>
-            Dispatch Order #{orders.find(o => o.id === dispatchModal.orderId)?.order_number}
-          </h2>
+        <div className="section-panel" style={{ borderLeft: '4px solid #15803d', background: '#f0fdf4' }}>
+          <div className="section-header">
+            <span className="section-heading" style={{ color: '#15803d' }}>
+              Dispatch Processing — Order #{orders.find(o => o.id === dispatchModal.orderId)?.order_number}
+            </span>
+          </div>
 
           <form onSubmit={handleDispatch}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+            <div className="form-grid-2">
               <div className="form-group">
-                <label className="form-label">Vehicle Number</label>
+                <label className="form-label">Vehicle Registration Number *</label>
                 <input 
                   type="text" 
                   className="form-control" 
@@ -102,7 +118,7 @@ const SalesOrders = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Driver Name</label>
+                <label className="form-label">Driver Full Name *</label>
                 <input 
                   type="text" 
                   className="form-control" 
@@ -116,7 +132,7 @@ const SalesOrders = () => {
 
             <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
               <button type="submit" className="btn btn-success">
-                Confirm Dispatch
+                Complete & Record Dispatch
               </button>
               <button 
                 type="button" 
@@ -130,45 +146,85 @@ const SalesOrders = () => {
         </div>
       )}
 
-      {/* Sales Orders Table */}
-      <div className="table-container">
+      {/* Toolbar */}
+      <div className="toolbar-bar">
+        <div className="search-input-group">
+          <input 
+            type="text" 
+            className="form-control" 
+            placeholder="Search by Order No, Customer, Location..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+          />
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <select 
+            className="form-control" 
+            style={{ width: '150px', padding: '0.35rem 0.5rem' }}
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+          >
+            <option value="ALL">All Statuses</option>
+            <option value="PENDING">PENDING</option>
+            <option value="CONFIRMED">CONFIRMED</option>
+            <option value="DISPATCHED">DISPATCHED</option>
+          </select>
+
+          <span className="records-count">
+            Showing {filteredOrders.length} of {orders.length} orders
+          </span>
+        </div>
+      </div>
+
+      {/* Data Table */}
+      <div className="table-wrapper attached-to-toolbar">
         <table>
           <thead>
             <tr>
               <th>Order No.</th>
-              <th>Date</th>
+              <th>Order Date</th>
               <th>Customer</th>
               <th>Ordered Products</th>
-              <th>Total Amount</th>
+              <th className="text-right">Total Amount (₹)</th>
               <th>Status</th>
-              <th>Actions</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
             {tableLoading ? (
               <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)' }}>
+                <td colSpan={7} className="text-center" style={{ padding: '1.5rem', color: 'var(--text-muted)' }}>
                   Loading sales orders...
                 </td>
               </tr>
-            ) : orders.length === 0 ? (
+            ) : filteredOrders.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)' }}>
-                  No sales orders found.
+                <td colSpan={7} className="text-center" style={{ padding: '2rem', color: 'var(--text-muted)' }}>
+                  No sales orders found. Convert an <strong>ACCEPTED</strong> quotation to generate a new order.
                 </td>
               </tr>
             ) : (
-              orders.map((order: any) => (
+              filteredOrders.map((order: any) => (
                 <tr key={order.id}>
-                  <td><strong>{order.order_number}</strong></td>
+                  <td className="code-cell">{order.order_number}</td>
                   <td>{new Date(order.order_date).toLocaleDateString()}</td>
-                  <td>{order.customer?.company_name || 'N/A'}</td>
-                  <td style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                    {order.items?.map((item: any) => `${item.product?.name} (Qty: ${item.quantity})`).join(', ') || '-'}
-                  </td>
-                  <td><strong>₹{Number(order.total_amount || 0).toFixed(2)}</strong></td>
                   <td>
-                    <span className={`badge badge-${order.status.toLowerCase()}`}>
+                    <strong>{order.customer?.company_name || 'N/A'}</strong>
+                    <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                      {order.customer?.city}
+                    </div>
+                  </td>
+                  <td>
+                    <div style={{ fontSize: '0.8rem' }}>
+                      {order.items?.map((item: any) => `${item.product?.name} (Qty: ${item.quantity})`).join(', ') || '-'}
+                    </div>
+                  </td>
+                  <td className="text-right code-cell">
+                    ₹{Number(order.total_amount || 0).toFixed(2)}
+                  </td>
+                  <td>
+                    <span className={`status-tag status-${order.status.toLowerCase()}`}>
                       {order.status}
                     </span>
                   </td>
@@ -178,6 +234,7 @@ const SalesOrders = () => {
                         <button 
                           className="btn btn-primary btn-sm"
                           onClick={() => handleConfirm(order.id)}
+                          title="Verify stock and reserve required quantity"
                         >
                           Confirm & Reserve
                         </button>
@@ -188,13 +245,19 @@ const SalesOrders = () => {
                           className="btn btn-success btn-sm"
                           onClick={() => setDispatchModal({ orderId: order.id, vehicle: '', driver: '' })}
                         >
-                          Dispatch
+                          Dispatch Order
                         </button>
                       )}
 
                       {order.status === 'DISPATCHED' && (
-                        <span style={{ fontSize: '0.8rem', color: 'var(--success-text)', fontWeight: 600 }}>
-                          Dispatched
+                        <span style={{ fontSize: '0.78rem', color: 'var(--status-success-text)', fontWeight: 600 }}>
+                          ✓ Dispatched
+                        </span>
+                      )}
+
+                      {user?.role === 'SALES' && order.status === 'PENDING' && (
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                          Pending Admin
                         </span>
                       )}
                     </div>

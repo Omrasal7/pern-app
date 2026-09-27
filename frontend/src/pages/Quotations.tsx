@@ -1,4 +1,4 @@
-// Quotations.tsx - Prepare price quotations and convert to Sales Orders
+// Quotations.tsx - Commercial quotation generation and approval workflow
 import { useState, useEffect, useContext } from 'react';
 import api from '../services/api';
 import { AuthContext } from '../context/AuthContext';
@@ -13,8 +13,12 @@ const Quotations = () => {
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
+  // Search & Filter
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+
   const [form, setForm] = useState({
-    quotation_number: `Q-${Date.now().toString().slice(-6)}`,
+    quotation_number: `QT-${Date.now().toString().slice(-5)}`,
     enquiry_id: '',
     valid_until: '',
   });
@@ -41,7 +45,7 @@ const Quotations = () => {
       setEnquiries(eRes.data);
       setProducts(pRes.data);
     } catch (err) {
-      console.error('Failed to fetch quotations data', err);
+      console.error('Failed to load quotations', err);
     } finally {
       setTableLoading(false);
     }
@@ -87,10 +91,10 @@ const Quotations = () => {
         })),
       });
 
-      setSuccessMsg('Quotation created successfully');
+      setSuccessMsg('Quotation successfully generated and verified by backend.');
       setShowForm(false);
       setForm({
-        quotation_number: `Q-${Date.now().toString().slice(-6)}`,
+        quotation_number: `QT-${Date.now().toString().slice(-5)}`,
         enquiry_id: '',
         valid_until: '',
       });
@@ -109,7 +113,7 @@ const Quotations = () => {
     setSuccessMsg('');
     try {
       await api.patch(`/quotations/${id}/status`, { status });
-      setSuccessMsg(`Quotation updated to ${status}`);
+      setSuccessMsg(`Quotation status updated to ${status}`);
       fetchAll();
       setTimeout(() => setSuccessMsg(''), 3000);
     } catch (err: any) {
@@ -120,7 +124,7 @@ const Quotations = () => {
   const handleConvert = async (id: number) => {
     setError('');
     setSuccessMsg('');
-    const order_number = `SO-${Date.now().toString().slice(-6)}`;
+    const order_number = `SO-${Date.now().toString().slice(-5)}`;
     try {
       await api.post(`/quotations/${id}/convert`, { order_number });
       setSuccessMsg(`Quotation converted to Sales Order: ${order_number}`);
@@ -131,29 +135,52 @@ const Quotations = () => {
     }
   };
 
-  const calculateEstimatedTotal = () => {
-    return items.reduce((sum, item) => {
+  // Live calculation breakdown
+  const computeBreakdown = () => {
+    let subtotal = 0;
+    let totalDiscount = 0;
+    let totalGst = 0;
+
+    items.forEach(item => {
       const prod = products.find((p: any) => p.id === Number(item.product_id));
-      if (!prod) return sum;
+      if (!prod) return;
       const base = prod.base_price * item.quantity;
       const discount = base * (Number(item.discount_percent || 0) / 100);
       const afterDiscount = base - discount;
       const gst = afterDiscount * (Number(item.gst_percent || 0) / 100);
-      return sum + afterDiscount + gst;
-    }, 0);
+
+      subtotal += base;
+      totalDiscount += discount;
+      totalGst += gst;
+    });
+
+    const grandTotal = subtotal - totalDiscount + totalGst;
+    return { subtotal, totalDiscount, totalGst, grandTotal };
   };
+
+  const breakdown = computeBreakdown();
+
+  // Filtered List
+  const filteredQuotations = quotations.filter(q => {
+    const matchesSearch = 
+      q.quotation_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (q.enquiry?.enquiry_number || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (q.enquiry?.customer?.company_name || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'ALL' || q.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   return (
     <div>
-      {/* Header */}
+      {/* Page Header */}
       <div className="page-header">
         <div>
           <h1 className="page-title">Quotations</h1>
-          <p className="page-description">Generate price quotes with discount and GST calculation</p>
+          <p className="page-description">Generate commercial quotations, apply tax rates, and process customer approvals</p>
         </div>
         {user?.role === 'SALES' && (
           <button 
-            className="btn btn-primary" 
+            className={`btn ${showForm ? 'btn-secondary' : 'btn-primary'}`} 
             onClick={() => { setShowForm(!showForm); setError(''); }}
           >
             {showForm ? 'Close Form' : '+ New Quotation'}
@@ -161,19 +188,23 @@ const Quotations = () => {
         )}
       </div>
 
-      {successMsg && <div className="alert alert-success">{successMsg}</div>}
-      {error && !showForm && <div className="alert alert-danger">{error}</div>}
+      {successMsg && <div className="app-alert app-alert-success">{successMsg}</div>}
+      {error && !showForm && <div className="app-alert app-alert-danger">{error}</div>}
 
-      {/* Form */}
+      {/* Commercial Quotation Creation Form */}
       {showForm && (
-        <div className="content-box">
-          <h2 className="box-title">Create New Quotation</h2>
-          {error && <div className="alert alert-danger">{error}</div>}
+        <div className="section-panel">
+          <div className="section-header">
+            <span className="section-heading">Create Commercial Quotation</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Auto-Validated Backend Calculations</span>
+          </div>
+
+          {error && <div className="app-alert app-alert-danger">{error}</div>}
 
           <form onSubmit={handleSubmit}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+            <div className="form-grid-3">
               <div className="form-group">
-                <label className="form-label">Quotation Number</label>
+                <label className="form-label">Quotation Number *</label>
                 <input 
                   type="text" 
                   className="form-control" 
@@ -184,26 +215,26 @@ const Quotations = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Enquiry Reference</label>
+                <label className="form-label">Enquiry Reference *</label>
                 <select 
                   className="form-control" 
                   value={form.enquiry_id}
                   onChange={e => handleEnquiryChange(e.target.value)} 
                   required
                 >
-                  <option value="">-- Select Enquiry --</option>
+                  <option value="">-- Choose Enquiry --</option>
                   {enquiries
                     .filter((e: any) => e.status === 'NEW' || e.status === 'QUOTED')
                     .map((e: any) => (
                       <option key={e.id} value={e.id}>
-                        {e.enquiry_number} - {e.customer?.company_name}
+                        {e.enquiry_number} — {e.customer?.company_name}
                       </option>
                     ))}
                 </select>
               </div>
 
               <div className="form-group">
-                <label className="form-label">Valid Until</label>
+                <label className="form-label">Valid Until Date *</label>
                 <input 
                   type="date" 
                   className="form-control" 
@@ -214,94 +245,131 @@ const Quotations = () => {
               </div>
             </div>
 
-            {/* Line items pricing */}
-            <div className="form-group">
-              <label className="form-label">Product Pricing</label>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: '0.5rem', marginBottom: '0.25rem', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-                <span>Product</span>
-                <span>Qty</span>
-                <span>Discount %</span>
-                <span>GST %</span>
-                <span></span>
-              </div>
-
-              {items.map((item, i) => (
-                <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: '0.5rem', marginBottom: '0.5rem', alignItems: 'center' }}>
-                  <select 
-                    className="form-control" 
-                    value={item.product_id}
-                    onChange={e => updateItem(i, 'product_id', e.target.value)} 
-                    required
-                  >
-                    <option value="">-- Select Product --</option>
-                    {products.map((p: any) => (
-                      <option key={p.id} value={p.id}>
-                        {p.product_code} - {p.name} (₹{p.base_price})
-                      </option>
-                    ))}
-                  </select>
-
-                  <input 
-                    type="number" 
-                    min="1" 
-                    className="form-control" 
-                    placeholder="Qty" 
-                    value={item.quantity}
-                    onChange={e => updateItem(i, 'quantity', e.target.value)} 
-                    required 
-                  />
-
-                  <input 
-                    type="number" 
-                    min="0" 
-                    max="100" 
-                    className="form-control" 
-                    placeholder="0" 
-                    value={item.discount_percent}
-                    onChange={e => updateItem(i, 'discount_percent', e.target.value)} 
-                  />
-
-                  <input 
-                    type="number" 
-                    min="0" 
-                    max="100" 
-                    className="form-control" 
-                    placeholder="18" 
-                    value={item.gst_percent}
-                    onChange={e => updateItem(i, 'gst_percent', e.target.value)} 
-                  />
-
-                  {items.length > 1 && (
-                    <button 
-                      type="button" 
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => removeItem(i)}
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-              ))}
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
-                <button 
-                  type="button" 
-                  className="btn btn-secondary btn-sm"
-                  onClick={addItem}
-                >
-                  + Add Line
-                </button>
-
-                <div style={{ fontSize: '0.9rem' }}>
-                  Estimated Total: <strong>₹{calculateEstimatedTotal().toFixed(2)}</strong>
-                </div>
-              </div>
+            {/* Line Items Pricing Table */}
+            <div className="section-subheading">
+              Line Items & Commercial Pricing
             </div>
 
-            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+            <div style={{ background: '#f8fafc', padding: '0.75rem', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr auto', gap: '0.5rem', marginBottom: '0.35rem', fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                <span>Product</span>
+                <span>Qty</span>
+                <span>Unit Price</span>
+                <span>Disc %</span>
+                <span>GST %</span>
+                <span>Action</span>
+              </div>
+
+              {items.map((item, i) => {
+                const prod = products.find((p: any) => p.id === Number(item.product_id));
+                const unitPrice = prod ? prod.base_price : 0;
+                return (
+                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr auto', gap: '0.5rem', marginBottom: '0.45rem', alignItems: 'center' }}>
+                    <select 
+                      className="form-control" 
+                      value={item.product_id}
+                      onChange={e => updateItem(i, 'product_id', e.target.value)} 
+                      required
+                    >
+                      <option value="">-- Choose Product --</option>
+                      {products.map((p: any) => (
+                        <option key={p.id} value={p.id}>
+                          {p.product_code} — {p.name}
+                        </option>
+                      ))}
+                    </select>
+
+                    <input 
+                      type="number" 
+                      min="1" 
+                      className="form-control" 
+                      placeholder="Qty" 
+                      value={item.quantity}
+                      onChange={e => updateItem(i, 'quantity', e.target.value)} 
+                      required 
+                    />
+
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      value={`₹${unitPrice}`}
+                      disabled
+                      style={{ background: '#e2e8f0' }}
+                    />
+
+                    <input 
+                      type="number" 
+                      min="0" 
+                      max="100" 
+                      className="form-control" 
+                      placeholder="0%" 
+                      value={item.discount_percent}
+                      onChange={e => updateItem(i, 'discount_percent', e.target.value)} 
+                    />
+
+                    <input 
+                      type="number" 
+                      min="0" 
+                      max="100" 
+                      className="form-control" 
+                      placeholder="18%" 
+                      value={item.gst_percent}
+                      onChange={e => updateItem(i, 'gst_percent', e.target.value)} 
+                    />
+
+                    {items.length > 1 ? (
+                      <button 
+                        type="button" 
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => removeItem(i)}
+                        style={{ color: 'var(--status-danger-text)' }}
+                      >
+                        Remove
+                      </button>
+                    ) : <div style={{ width: '56px' }}></div>}
+                  </div>
+                );
+              })}
+
+              <button 
+                type="button" 
+                className="btn btn-secondary btn-sm" 
+                style={{ marginTop: '0.35rem' }}
+                onClick={addItem}
+              >
+                + Add Item Line
+              </button>
+            </div>
+
+            {/* Financial Summary */}
+            <div className="quotation-totals-grid">
+              <table className="totals-table">
+                <tbody>
+                  <tr>
+                    <td>Base Subtotal:</td>
+                    <td className="text-right">₹{breakdown.subtotal.toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td>Total Discount Applied:</td>
+                    <td className="text-right" style={{ color: 'var(--status-danger-text)' }}>
+                      - ₹{breakdown.totalDiscount.toFixed(2)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>GST Tax Amount:</td>
+                    <td className="text-right">+ ₹{breakdown.totalGst.toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td>Grand Total (INR):</td>
+                    <td className="text-right">₹{breakdown.grandTotal.toFixed(2)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', paddingTop: '0.5rem', borderTop: '1px solid var(--border-divider)' }}>
               <button type="submit" className="btn btn-primary" disabled={loading}>
-                {loading ? 'Submitting...' : 'Save Quotation'}
+                {loading ? 'Submitting...' : 'Save & Issue Quotation'}
               </button>
               <button 
                 type="button" 
@@ -315,8 +383,40 @@ const Quotations = () => {
         </div>
       )}
 
-      {/* Quotations Table */}
-      <div className="table-container">
+      {/* Toolbar */}
+      <div className="toolbar-bar">
+        <div className="search-input-group">
+          <input 
+            type="text" 
+            className="form-control" 
+            placeholder="Search by Quote No, Enquiry, Customer..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+          />
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <select 
+            className="form-control" 
+            style={{ width: '140px', padding: '0.35rem 0.5rem' }}
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+          >
+            <option value="ALL">All Statuses</option>
+            <option value="DRAFT">DRAFT</option>
+            <option value="SENT">SENT</option>
+            <option value="ACCEPTED">ACCEPTED</option>
+            <option value="REJECTED">REJECTED</option>
+          </select>
+
+          <span className="records-count">
+            Showing {filteredQuotations.length} of {quotations.length} quotations
+          </span>
+        </div>
+      </div>
+
+      {/* Data Table */}
+      <div className="table-wrapper attached-to-toolbar">
         <table>
           <thead>
             <tr>
@@ -324,36 +424,38 @@ const Quotations = () => {
               <th>Enquiry Ref</th>
               <th>Customer</th>
               <th>Valid Until</th>
-              <th>Total Amount</th>
+              <th className="text-right">Total Amount (₹)</th>
               <th>Status</th>
-              <th>Actions</th>
+              <th>Workflow Action</th>
             </tr>
           </thead>
           <tbody>
             {tableLoading ? (
               <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)' }}>
+                <td colSpan={7} className="text-center" style={{ padding: '1.5rem', color: 'var(--text-muted)' }}>
                   Loading quotations...
                 </td>
               </tr>
-            ) : quotations.length === 0 ? (
+            ) : filteredQuotations.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)' }}>
-                  No quotations created yet.
+                <td colSpan={7} className="text-center" style={{ padding: '2rem', color: 'var(--text-muted)' }}>
+                  No quotations match the selected criteria.
                 </td>
               </tr>
             ) : (
-              quotations.map((q: any) => {
+              filteredQuotations.map((q: any) => {
                 const total = q.items?.reduce((sum: number, item: any) => sum + Number(item.line_amount || 0), 0) || 0;
                 return (
                   <tr key={q.id}>
-                    <td><strong>{q.quotation_number}</strong></td>
+                    <td className="code-cell">{q.quotation_number}</td>
                     <td>{q.enquiry?.enquiry_number || '-'}</td>
-                    <td>{q.enquiry?.customer?.company_name || 'N/A'}</td>
+                    <td><strong>{q.enquiry?.customer?.company_name || 'N/A'}</strong></td>
                     <td>{new Date(q.valid_until).toLocaleDateString()}</td>
-                    <td><strong>₹{total.toFixed(2)}</strong></td>
+                    <td className="text-right code-cell">
+                      ₹{total.toFixed(2)}
+                    </td>
                     <td>
-                      <span className={`badge badge-${q.status.toLowerCase()}`}>
+                      <span className={`status-tag status-${q.status.toLowerCase()}`}>
                         {q.status}
                       </span>
                     </td>
@@ -390,8 +492,14 @@ const Quotations = () => {
                             className="btn btn-primary btn-sm"
                             onClick={() => handleConvert(q.id)}
                           >
-                            Convert to Order
+                            Convert to Sales Order →
                           </button>
+                        )}
+
+                        {q.status === 'WON' && (
+                          <span style={{ fontSize: '0.78rem', color: 'var(--status-success-text)', fontWeight: 600 }}>
+                            Converted to Order
+                          </span>
                         )}
                       </div>
                     </td>
