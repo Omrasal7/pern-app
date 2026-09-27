@@ -1,49 +1,45 @@
-// SalesOrders.tsx - Admin confirms & dispatches sales orders.
-// Also shows current inventory status.
-
+// SalesOrders.tsx - Manage sales orders, stock reservation, and dispatch
 import { useState, useEffect, useContext } from 'react';
 import api from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 
 const SalesOrders = () => {
   const [orders, setOrders] = useState<any[]>([]);
-  const [inventory, setInventory] = useState<any[]>([]);
-  const [showInventory, setShowInventory] = useState(false);
-  const [dispatchForm, setDispatchForm] = useState<{ orderId: number | null; vehicle: string; driver: string }>({
-    orderId: null, vehicle: '', driver: ''
+  const [tableLoading, setTableLoading] = useState(true);
+  const [dispatchModal, setDispatchModal] = useState<{ orderId: number | null; vehicle: string; driver: string }>({
+    orderId: null,
+    vehicle: '',
+    driver: '',
   });
   const [error, setError] = useState('');
-  const [msg, setMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
   const { user } = useContext(AuthContext);
 
   useEffect(() => {
     fetchOrders();
-    fetchInventory();
   }, []);
 
   const fetchOrders = async () => {
+    setTableLoading(true);
     try {
       const res = await api.get('/sales-orders');
       setOrders(res.data);
-    } catch (err) { console.error(err); }
-  };
-
-  const fetchInventory = async () => {
-    try {
-      const res = await api.get('/inventory');
-      setInventory(res.data);
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error('Failed to fetch sales orders', err);
+    } finally {
+      setTableLoading(false);
+    }
   };
 
   const handleConfirm = async (id: number) => {
     setError('');
+    setSuccessMsg('');
     try {
       await api.post(`/sales-orders/${id}/confirm`);
-      setMsg('Order confirmed! Inventory reserved.');
+      setSuccessMsg('Sales Order confirmed! Inventory reserved in database.');
       fetchOrders();
-      fetchInventory();
-      setTimeout(() => setMsg(''), 3000);
+      setTimeout(() => setSuccessMsg(''), 4000);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to confirm order');
     }
@@ -51,18 +47,21 @@ const SalesOrders = () => {
 
   const handleDispatch = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!dispatchModal.orderId) return;
     setError('');
+    setSuccessMsg('');
+
     try {
-      await api.post(`/sales-orders/${dispatchForm.orderId}/dispatch`, {
-        dispatch_number: `D-${Date.now()}`,
-        vehicle_number: dispatchForm.vehicle,
-        driver_name: dispatchForm.driver,
+      await api.post(`/sales-orders/${dispatchModal.orderId}/dispatch`, {
+        dispatch_number: `DSP-${Date.now().toString().slice(-6)}`,
+        vehicle_number: dispatchModal.vehicle,
+        driver_name: dispatchModal.driver,
       });
-      setMsg('Order dispatched! Inventory updated.');
-      setDispatchForm({ orderId: null, vehicle: '', driver: '' });
+
+      setSuccessMsg('Sales Order dispatched! Physical & reserved inventory deducted.');
+      setDispatchModal({ orderId: null, vehicle: '', driver: '' });
       fetchOrders();
-      fetchInventory();
-      setTimeout(() => setMsg(''), 3000);
+      setTimeout(() => setSuccessMsg(''), 4000);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to dispatch order');
     }
@@ -70,119 +69,131 @@ const SalesOrders = () => {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-        <h2>Sales Orders</h2>
-        <button className="btn" style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-muted)' }}
-          onClick={() => setShowInventory(!showInventory)}>
-          {showInventory ? 'Hide' : 'Show'} Inventory
-        </button>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Sales Orders</h1>
+          <p className="page-subtitle">Track orders generated from accepted quotations, reserve inventory, and dispatch products</p>
+        </div>
       </div>
 
-      {msg && <div style={{ background: 'rgba(16,185,129,0.2)', color: 'var(--success)', padding: '0.75rem 1rem', borderRadius: '8px', marginBottom: '1rem' }}>{msg}</div>}
-      {error && <div style={{ background: 'rgba(239,68,68,0.2)', color: 'var(--danger)', padding: '0.75rem 1rem', borderRadius: '8px', marginBottom: '1rem' }}>{error}</div>}
+      {successMsg && <div className="alert alert-success">{successMsg}</div>}
+      {error && <div className="alert alert-danger">{error}</div>}
 
-      {/* ── Dispatch Form (shows when admin clicks Dispatch) ── */}
-      {dispatchForm.orderId && (
-        <div className="card fade-in" style={{ marginBottom: '2rem', borderColor: 'var(--success)' }}>
-          <h3 style={{ marginBottom: '1rem' }}>Dispatch Details</h3>
+      {/* Dispatch Form Box */}
+      {dispatchModal.orderId && (
+        <div className="card" style={{ borderColor: '#86efac', background: '#f0fdf4' }}>
+          <h2 className="card-title" style={{ color: '#166534' }}>
+            Dispatch Details for Order #{orders.find(o => o.id === dispatchModal.orderId)?.order_number}
+          </h2>
+
           <form onSubmit={handleDispatch}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
               <div className="form-group">
                 <label className="form-label">Vehicle Number</label>
-                <input className="form-control" placeholder="e.g. MH-01-AB-1234" value={dispatchForm.vehicle}
-                  onChange={e => setDispatchForm({ ...dispatchForm, vehicle: e.target.value })} required />
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  placeholder="e.g. MH-04-AB-1234"
+                  value={dispatchModal.vehicle}
+                  onChange={e => setDispatchModal({ ...dispatchModal, vehicle: e.target.value })}
+                  required 
+                />
               </div>
+
               <div className="form-group">
                 <label className="form-label">Driver Name</label>
-                <input className="form-control" placeholder="Driver's full name" value={dispatchForm.driver}
-                  onChange={e => setDispatchForm({ ...dispatchForm, driver: e.target.value })} required />
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  placeholder="e.g. Rajesh Kumar"
+                  value={dispatchModal.driver}
+                  onChange={e => setDispatchModal({ ...dispatchModal, driver: e.target.value })}
+                  required 
+                />
               </div>
             </div>
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              <button type="submit" className="btn btn-success">Confirm Dispatch</button>
-              <button type="button" className="btn" style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-muted)' }}
-                onClick={() => setDispatchForm({ orderId: null, vehicle: '', driver: '' })}>Cancel</button>
+
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+              <button type="submit" className="btn btn-success">
+                Complete Dispatch
+              </button>
+              <button 
+                type="button" 
+                className="btn btn-secondary"
+                onClick={() => setDispatchModal({ orderId: null, vehicle: '', driver: '' })}
+              >
+                Cancel
+              </button>
             </div>
           </form>
         </div>
       )}
 
-      {/* ── Inventory Panel ── */}
-      {showInventory && (
-        <div className="card fade-in" style={{ marginBottom: '2rem' }}>
-          <h3 style={{ marginBottom: '1rem' }}>Inventory Availability</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>Product Code</th>
-                <th>Product Name</th>
-                <th>Physical Qty</th>
-                <th>Reserved Qty</th>
-                <th>Available Qty</th>
-              </tr>
-            </thead>
-            <tbody>
-              {inventory.map((inv: any) => (
-                <tr key={inv.id}>
-                  <td>{inv.product_code}</td>
-                  <td>{inv.product_name}</td>
-                  <td>{inv.physical_quantity}</td>
-                  <td style={{ color: inv.reserved_quantity > 0 ? 'var(--warning)' : 'inherit' }}>{inv.reserved_quantity}</td>
-                  <td style={{ color: inv.available_quantity > 0 ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>
-                    {inv.available_quantity}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* ── Sales Orders Table ── */}
-      <div className="card table-container fade-in">
+      {/* Sales Orders Table */}
+      <div className="table-responsive">
         <table>
           <thead>
             <tr>
               <th>Order No.</th>
               <th>Date</th>
               <th>Customer</th>
-              <th>Items</th>
+              <th>Ordered Products</th>
               <th>Total Amount</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {orders.map((order: any) => (
-              <tr key={order.id}>
-                <td><strong>{order.order_number}</strong></td>
-                <td>{new Date(order.order_date).toLocaleDateString()}</td>
-                <td>{order.customer.company_name}</td>
-                <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  {order.items.map((i: any) => `${i.product.name} ×${i.quantity}`).join(', ')}
-                </td>
-                <td style={{ color: 'var(--success)' }}>₹{Number(order.total_amount).toFixed(2)}</td>
-                <td><span className={`badge badge-${order.status.toLowerCase()}`}>{order.status}</span></td>
-                <td>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    {user?.role === 'ADMIN' && order.status === 'PENDING' && (
-                      <button className="btn btn-primary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem' }}
-                        onClick={() => handleConfirm(order.id)}>
-                        ✓ Confirm & Reserve
-                      </button>
-                    )}
-                    {user?.role === 'ADMIN' && order.status === 'CONFIRMED' && (
-                      <button className="btn btn-success" style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem' }}
-                        onClick={() => setDispatchForm({ orderId: order.id, vehicle: '', driver: '' })}>
-                        🚛 Dispatch
-                      </button>
-                    )}
-                  </div>
+            {tableLoading ? (
+              <tr>
+                <td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)' }}>
+                  Loading sales orders...
                 </td>
               </tr>
-            ))}
-            {orders.length === 0 && (
-              <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No sales orders yet.</td></tr>
+            ) : orders.length === 0 ? (
+              <tr>
+                <td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)' }}>
+                  No sales orders found. Convert an ACCEPTED quotation to create one.
+                </td>
+              </tr>
+            ) : (
+              orders.map((order: any) => (
+                <tr key={order.id}>
+                  <td><strong>{order.order_number}</strong></td>
+                  <td>{new Date(order.order_date).toLocaleDateString()}</td>
+                  <td>{order.customer?.company_name || 'N/A'}</td>
+                  <td style={{ fontSize: '0.8rem', color: '#475569' }}>
+                    {order.items?.map((item: any) => `${item.product?.name} (Qty: ${item.quantity})`).join(', ') || '-'}
+                  </td>
+                  <td><strong>₹{Number(order.total_amount || 0).toFixed(2)}</strong></td>
+                  <td>
+                    <span className={`badge badge-${order.status.toLowerCase()}`}>
+                      {order.status}
+                    </span>
+                  </td>
+                  <td>
+                    <div style={{ display: 'flex', gap: '0.35rem' }}>
+                      {user?.role === 'ADMIN' && order.status === 'PENDING' && (
+                        <button 
+                          className="btn btn-primary btn-sm"
+                          onClick={() => handleConfirm(order.id)}
+                        >
+                          Confirm & Reserve
+                        </button>
+                      )}
+
+                      {user?.role === 'ADMIN' && order.status === 'CONFIRMED' && (
+                        <button 
+                          className="btn btn-success btn-sm"
+                          onClick={() => setDispatchModal({ orderId: order.id, vehicle: '', driver: '' })}
+                        >
+                          Dispatch Order
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))
             )}
           </tbody>
         </table>
