@@ -1,0 +1,166 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            Int      @id @default(autoincrement())
+  name          String
+  email         String   @unique
+  password_hash String
+  role          String
+  createdAt     DateTime @default(now())
+  
+  enquiries     Enquiry[]
+  quotations    Quotation[]
+}
+
+
+
+model Customer {
+  id             Int       @id @default(autoincrement())
+  company_name   String
+  contact_person String
+  mobile         String
+  email          String    @unique
+  city           String
+  createdAt      DateTime  @default(now())
+  
+  enquiries      Enquiry[]
+  sales_orders   SalesOrder[]
+}
+
+model Product {
+  id             Int       @id @default(autoincrement())
+  product_code   String    @unique
+  name           String
+  category       String
+  unit           String
+  base_price     Float
+  
+  inventory          Inventory?
+  enquiry_items      EnquiryItem[]
+  quotation_items    QuotationItem[]
+  sales_order_items  SalesOrderItem[]
+  dispatch_items     DispatchItem[]
+}
+
+model Inventory {
+  id                Int     @id @default(autoincrement())
+  product_id        Int     @unique
+  physical_quantity Int     @default(0)
+  reserved_quantity Int     @default(0)
+  
+  product           Product @relation(fields: [product_id], references: [id])
+}
+
+model Enquiry {
+  id             Int           @id @default(autoincrement())
+  enquiry_number String        @unique
+  customer_id    Int
+  enquiry_date   DateTime      @default(now())
+  required_date  DateTime
+  notes          String?
+  status         String        @default("NEW")
+  created_by     Int
+
+  customer       Customer      @relation(fields: [customer_id], references: [id])
+  user           User          @relation(fields: [created_by], references: [id])
+  items          EnquiryItem[]
+  quotations     Quotation[]
+}
+
+
+
+model EnquiryItem {
+  id         Int     @id @default(autoincrement())
+  enquiry_id Int
+  product_id Int
+  quantity   Int
+
+  enquiry    Enquiry @relation(fields: [enquiry_id], references: [id])
+  product    Product @relation(fields: [product_id], references: [id])
+}
+
+model Quotation {
+  id               Int             @id @default(autoincrement())
+  quotation_number String          @unique
+  enquiry_id       Int
+  valid_until      DateTime
+  status           String          @default("DRAFT")
+  created_by       Int
+  createdAt        DateTime        @default(now())
+
+  enquiry          Enquiry         @relation(fields: [enquiry_id], references: [id])
+  user             User            @relation(fields: [created_by], references: [id])
+  items            QuotationItem[]
+  sales_orders     SalesOrder[]
+}
+
+
+
+model QuotationItem {
+  id               Int       @id @default(autoincrement())
+  quotation_id     Int
+  product_id       Int
+  quantity         Int
+  unit_price       Float
+  discount_percent Float     @default(0)
+  gst_percent      Float     @default(0)
+  line_amount      Float
+
+  quotation        Quotation @relation(fields: [quotation_id], references: [id])
+  product          Product   @relation(fields: [product_id], references: [id])
+}
+
+model SalesOrder {
+  id               Int              @id @default(autoincrement())
+  order_number     String           @unique
+  customer_id      Int
+  quotation_id     Int
+  order_date       DateTime         @default(now())
+  total_amount     Float
+  status           String           @default("PENDING")
+
+  customer         Customer         @relation(fields: [customer_id], references: [id])
+  quotation        Quotation        @relation(fields: [quotation_id], references: [id])
+  items            SalesOrderItem[]
+  dispatches       Dispatch[]
+}
+
+
+
+model SalesOrderItem {
+  id             Int        @id @default(autoincrement())
+  sales_order_id Int
+  product_id     Int
+  quantity       Int
+
+  sales_order    SalesOrder @relation(fields: [sales_order_id], references: [id])
+  product        Product    @relation(fields: [product_id], references: [id])
+}
+
+model Dispatch {
+  id              Int            @id @default(autoincrement())
+  dispatch_number String         @unique
+  sales_order_id  Int
+  dispatch_date   DateTime       @default(now())
+  vehicle_number  String
+  driver_name     String
+
+  sales_order     SalesOrder     @relation(fields: [sales_order_id], references: [id])
+  items           DispatchItem[]
+}
+
+model DispatchItem {
+  id          Int      @id @default(autoincrement())
+  dispatch_id Int
+  product_id  Int
+  quantity    Int
+
+  dispatch    Dispatch @relation(fields: [dispatch_id], references: [id])
+  product     Product  @relation(fields: [product_id], references: [id])
+}
