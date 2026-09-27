@@ -1,8 +1,7 @@
-// Sidebar.tsx - Modern sidebar with brand icon, navigation links and user card
+// Sidebar.tsx - Simple left navigation bar
 import { useContext } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { IconEnquiry, IconQuotation, IconSalesOrder, IconInventory, IconLogout } from './Icons';
 
 const Sidebar = () => {
   const { user, logout } = useContext(AuthContext);
@@ -15,79 +14,55 @@ const Sidebar = () => {
 
   if (!user) return null;
 
-  const userInitial = user.name ? user.name.charAt(0).toUpperCase() : (user.role === 'ADMIN' ? 'A' : 'S');
-  const isAdmin = user.role === 'ADMIN';
-
   return (
     <aside className="sidebar">
-      {/* Brand Header */}
-      <div className="sidebar-brand">
-        <div className="brand-icon">E</div>
-        <div className="brand-text">
-          <h1>PERN ERP</h1>
-          <p>Supply & Manufacturing</p>
-        </div>
+      <div className="sidebar-header">
+        <h1>PERN ERP System</h1>
+        <p>Manufacturing & Supply Chain</p>
       </div>
 
-      {/* Navigation Links */}
       <nav className="sidebar-nav">
-        <div className="nav-section-label">Main Modules</div>
-
         <NavLink 
           to="/enquiries" 
-          className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+          className={({ isActive }) => `nav-link-item ${isActive ? 'active' : ''}`}
         >
-          <IconEnquiry />
-          <span>Customer Enquiries</span>
+          Customer Enquiries
         </NavLink>
 
         <NavLink 
           to="/quotations" 
-          className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+          className={({ isActive }) => `nav-link-item ${isActive ? 'active' : ''}`}
         >
-          <IconQuotation />
-          <span>Quotations</span>
+          Quotations
         </NavLink>
 
         <NavLink 
           to="/sales-orders" 
-          className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+          className={({ isActive }) => `nav-link-item ${isActive ? 'active' : ''}`}
         >
-          <IconSalesOrder />
-          <span>Sales Orders</span>
+          Sales Orders
         </NavLink>
-
-        <div className="nav-section-label" style={{ marginTop: '0.5rem' }}>Inventory</div>
 
         <NavLink 
           to="/inventory" 
-          className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+          className={({ isActive }) => `nav-link-item ${isActive ? 'active' : ''}`}
         >
-          <IconInventory />
-          <span>Stock & Availability</span>
+          Inventory Stock
         </NavLink>
       </nav>
 
-      {/* Footer / User Profile */}
       <div className="sidebar-footer">
-        <div className="user-card">
-          <div className="user-avatar">{userInitial}</div>
-          <div className="user-meta">
-            <div className="user-name">{user.name || user.email || 'Current User'}</div>
-            <div className={`user-role-badge ${isAdmin ? 'role-admin' : 'role-sales'}`}>
-              <span className="status-dot"></span>
-              {user.role}
-            </div>
-          </div>
+        <div className="user-badge">
+          <div>{user.name || user.email}</div>
+          <span className="role-pill">{user.role}</span>
         </div>
 
         <button 
           onClick={handleLogout} 
           className="btn btn-secondary btn-sm" 
-          style={{ width: '100%', justifyContent: 'center' }}
+          style={{ width: '100%' }}
         >
-          <IconLogout />
-          <span>Sign Out</span>
+          Logout
         </button>
       </div>
     </aside>

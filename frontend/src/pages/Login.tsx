@@ -1,4 +1,4 @@
-// Login.tsx - High-polish authentication screen with demo account quick-fill
+// Login.tsx - Clean student project login page
 import { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
@@ -35,25 +35,22 @@ const Login = () => {
   };
 
   return (
-    <div className="login-page">
+    <div className="login-wrapper">
       <div className="login-card">
-        <div className="login-brand">
-          <div className="login-brand-logo">E</div>
-          <h2>PERN ERP System</h2>
-          <p>Manufacturing & Supply Chain Management</p>
-        </div>
+        <h2 className="login-title">PERN ERP Application</h2>
+        <p className="login-subtitle">Sign in with your assigned role credentials</p>
         
         {error && <div className="alert alert-danger">{error}</div>}
         
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label">Work Email</label>
+            <label className="form-label">Email Address</label>
             <input 
               type="email" 
               className="form-control" 
               value={email}
               onChange={e => setEmail(e.target.value)}
-              placeholder="e.g. sales@example.com"
+              placeholder="Enter your email"
               required
             />
           </div>
@@ -65,7 +62,7 @@ const Login = () => {
               className="form-control" 
               value={password}
               onChange={e => setPassword(e.target.value)}
-              placeholder="••••••••"
+              placeholder="Enter password"
               required
             />
           </div>
@@ -73,41 +70,28 @@ const Login = () => {
           <button 
             type="submit" 
             className="btn btn-primary" 
-            style={{ width: '100%', padding: '0.7rem', marginTop: '0.5rem', fontSize: '0.92rem' }}
+            style={{ width: '100%', marginTop: '0.5rem' }}
             disabled={loading}
           >
-            {loading ? 'Authenticating...' : 'Sign In to Account'}
+            {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
 
-        <div className="quick-login-box">
-          <div className="quick-login-title">
-            <span>Quick Login (Demo Roles)</span>
-            <span style={{ fontSize: '0.68rem', color: '#64748b' }}>Click to fill</span>
+        <div className="test-accounts-box">
+          <p>Demo Login Accounts (Click to autofill):</p>
+          <div 
+            className="test-account-row"
+            onClick={() => handleFillDemo('sales@example.com', 'sales123')}
+          >
+            <strong>Sales User:</strong>
+            <code>sales@example.com / sales123</code>
           </div>
-
-          <div className="quick-btn-grid">
-            <button 
-              type="button" 
-              className="quick-role-btn"
-              onClick={() => handleFillDemo('sales@example.com', 'sales123')}
-            >
-              <div className="quick-role-name">
-                <span>💼 Sales User</span>
-              </div>
-              <div className="quick-role-email">sales@example.com</div>
-            </button>
-
-            <button 
-              type="button" 
-              className="quick-role-btn"
-              onClick={() => handleFillDemo('admin@example.com', 'admin123')}
-            >
-              <div className="quick-role-name">
-                <span>🛡️ Admin User</span>
-              </div>
-              <div className="quick-role-email">admin@example.com</div>
-            </button>
+          <div 
+            className="test-account-row"
+            onClick={() => handleFillDemo('admin@example.com', 'admin123')}
+          >
+            <strong>Admin User:</strong>
+            <code>admin@example.com / admin123</code>
           </div>
         </div>
       </div>

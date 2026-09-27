@@ -2,7 +2,6 @@
 import { useState, useEffect, useContext } from 'react';
 import api from '../services/api';
 import { AuthContext } from '../context/AuthContext';
-import { IconPlus, IconClose, IconCheck } from '../components/Icons';
 
 const Quotations = () => {
   const [quotations, setQuotations] = useState<any[]>([]);
@@ -88,7 +87,7 @@ const Quotations = () => {
         })),
       });
 
-      setSuccessMsg('Quotation generated and line amounts validated on backend');
+      setSuccessMsg('Quotation created successfully');
       setShowForm(false);
       setForm({
         quotation_number: `Q-${Date.now().toString().slice(-6)}`,
@@ -144,84 +143,35 @@ const Quotations = () => {
     }, 0);
   };
 
-  // Metrics
-  const totalCount = quotations.length;
-  const draftCount = quotations.filter(q => q.status === 'DRAFT').length;
-  const acceptedCount = quotations.filter(q => q.status === 'ACCEPTED').length;
-  const totalValue = quotations.reduce((sum, q) => {
-    const qTotal = q.items?.reduce((s: number, i: any) => s + Number(i.line_amount || 0), 0) || 0;
-    return sum + qTotal;
-  }, 0);
-
   return (
     <div>
-      {/* Top Header */}
+      {/* Header */}
       <div className="page-header">
-        <div className="page-title-group">
-          <h1>Quotations</h1>
-          <p>Create competitive quotations with discount and GST calculations, then convert to Sales Orders</p>
+        <div>
+          <h1 className="page-title">Quotations</h1>
+          <p className="page-description">Generate price quotes with discount and GST calculation</p>
         </div>
         {user?.role === 'SALES' && (
           <button 
-            className={`btn ${showForm ? 'btn-secondary' : 'btn-primary'}`} 
+            className="btn btn-primary" 
             onClick={() => { setShowForm(!showForm); setError(''); }}
           >
-            {showForm ? <IconClose /> : <IconPlus />}
-            <span>{showForm ? 'Close Form' : 'New Quotation'}</span>
+            {showForm ? 'Close Form' : '+ New Quotation'}
           </button>
         )}
       </div>
 
-      {/* KPI Stats Row */}
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-icon blue">📑</div>
-          <div className="stat-info">
-            <span className="stat-label">Total Quotes</span>
-            <span className="stat-value">{totalCount}</span>
-          </div>
-        </div>
+      {successMsg && <div className="alert alert-success">{successMsg}</div>}
+      {error && !showForm && <div className="alert alert-danger">{error}</div>}
 
-        <div className="stat-card">
-          <div className="stat-icon amber">📝</div>
-          <div className="stat-info">
-            <span className="stat-label">Drafts Pending</span>
-            <span className="stat-value">{draftCount}</span>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon green">✅</div>
-          <div className="stat-info">
-            <span className="stat-label">Accepted Quotes</span>
-            <span className="stat-value">{acceptedCount}</span>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon purple">💰</div>
-          <div className="stat-info">
-            <span className="stat-label">Quoted Pipeline</span>
-            <span className="stat-value">₹{totalValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
-          </div>
-        </div>
-      </div>
-
-      {successMsg && <div className="alert alert-success">✓ {successMsg}</div>}
-      {error && !showForm && <div className="alert alert-danger">⚠ {error}</div>}
-
-      {/* Quotation Creation Form */}
+      {/* Form */}
       {showForm && (
-        <div className="card">
-          <div className="card-header">
-            <h2 className="card-title">Prepare New Price Quotation</h2>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Auto-Calculated Backend Validation</span>
-          </div>
-
-          {error && <div className="alert alert-danger">⚠ {error}</div>}
+        <div className="content-box">
+          <h2 className="box-title">Create New Quotation</h2>
+          {error && <div className="alert alert-danger">{error}</div>}
 
           <form onSubmit={handleSubmit}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
               <div className="form-group">
                 <label className="form-label">Quotation Number</label>
                 <input 
@@ -234,26 +184,26 @@ const Quotations = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Select Customer Enquiry</label>
+                <label className="form-label">Enquiry Reference</label>
                 <select 
                   className="form-control" 
                   value={form.enquiry_id}
                   onChange={e => handleEnquiryChange(e.target.value)} 
                   required
                 >
-                  <option value="">-- Choose Enquiry Reference --</option>
+                  <option value="">-- Select Enquiry --</option>
                   {enquiries
                     .filter((e: any) => e.status === 'NEW' || e.status === 'QUOTED')
                     .map((e: any) => (
                       <option key={e.id} value={e.id}>
-                        {e.enquiry_number} — {e.customer?.company_name}
+                        {e.enquiry_number} - {e.customer?.company_name}
                       </option>
                     ))}
                 </select>
               </div>
 
               <div className="form-group">
-                <label className="form-label">Quotation Validity Date</label>
+                <label className="form-label">Valid Until</label>
                 <input 
                   type="date" 
                   className="form-control" 
@@ -265,19 +215,19 @@ const Quotations = () => {
             </div>
 
             {/* Line items pricing */}
-            <div className="form-group" style={{ marginTop: '0.85rem' }}>
-              <label className="form-label">Product Pricing Breakdown</label>
+            <div className="form-group">
+              <label className="form-label">Product Pricing</label>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '2.5fr 1fr 1fr 1fr auto', gap: '0.65rem', marginBottom: '0.4rem', fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: '0.5rem', marginBottom: '0.25rem', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>
                 <span>Product</span>
-                <span>Quantity</span>
+                <span>Qty</span>
                 <span>Discount %</span>
                 <span>GST %</span>
                 <span></span>
               </div>
 
               {items.map((item, i) => (
-                <div key={i} style={{ display: 'grid', gridTemplateColumns: '2.5fr 1fr 1fr 1fr auto', gap: '0.65rem', marginBottom: '0.65rem', alignItems: 'center' }}>
+                <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: '0.5rem', marginBottom: '0.5rem', alignItems: 'center' }}>
                   <select 
                     className="form-control" 
                     value={item.product_id}
@@ -287,7 +237,7 @@ const Quotations = () => {
                     <option value="">-- Select Product --</option>
                     {products.map((p: any) => (
                       <option key={p.id} value={p.id}>
-                        {p.product_code} — {p.name} (Base: ₹{p.base_price})
+                        {p.product_code} - {p.name} (₹{p.base_price})
                       </option>
                     ))}
                   </select>
@@ -307,7 +257,7 @@ const Quotations = () => {
                     min="0" 
                     max="100" 
                     className="form-control" 
-                    placeholder="0%" 
+                    placeholder="0" 
                     value={item.discount_percent}
                     onChange={e => updateItem(i, 'discount_percent', e.target.value)} 
                   />
@@ -317,7 +267,7 @@ const Quotations = () => {
                     min="0" 
                     max="100" 
                     className="form-control" 
-                    placeholder="18%" 
+                    placeholder="18" 
                     value={item.gst_percent}
                     onChange={e => updateItem(i, 'gst_percent', e.target.value)} 
                   />
@@ -325,35 +275,33 @@ const Quotations = () => {
                   {items.length > 1 && (
                     <button 
                       type="button" 
-                      className="btn btn-danger btn-sm"
+                      className="btn btn-secondary btn-sm"
                       onClick={() => removeItem(i)}
-                      title="Remove line"
                     >
-                      <IconClose />
+                      ✕
                     </button>
                   )}
                 </div>
               ))}
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-light)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
                 <button 
                   type="button" 
                   className="btn btn-secondary btn-sm"
                   onClick={addItem}
                 >
-                  <IconPlus />
-                  <span>Add Line Item</span>
+                  + Add Line
                 </button>
 
-                <div style={{ fontSize: '0.95rem', fontWeight: 600 }}>
-                  Estimated Total: <strong style={{ color: 'var(--primary-dark)', fontSize: '1.15rem' }}>₹{calculateEstimatedTotal().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                <div style={{ fontSize: '0.9rem' }}>
+                  Estimated Total: <strong>₹{calculateEstimatedTotal().toFixed(2)}</strong>
                 </div>
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
               <button type="submit" className="btn btn-primary" disabled={loading}>
-                {loading ? 'Submitting Quotation...' : 'Create Quotation'}
+                {loading ? 'Submitting...' : 'Save Quotation'}
               </button>
               <button 
                 type="button" 
@@ -367,114 +315,92 @@ const Quotations = () => {
         </div>
       )}
 
-      {/* Quotations Table Card */}
-      <div className="table-card">
-        <div className="table-responsive">
-          <table>
-            <thead>
+      {/* Quotations Table */}
+      <div className="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Quote No.</th>
+              <th>Enquiry Ref</th>
+              <th>Customer</th>
+              <th>Valid Until</th>
+              <th>Total Amount</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tableLoading ? (
               <tr>
-                <th>Quote No.</th>
-                <th>Enquiry Reference</th>
-                <th>Customer Name</th>
-                <th>Valid Until</th>
-                <th>Final Amount (Inc. GST)</th>
-                <th>Status</th>
-                <th>Workflow Actions</th>
+                <td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)' }}>
+                  Loading quotations...
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {tableLoading ? (
-                <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-                    Loading quotations...
-                  </td>
-                </tr>
-              ) : quotations.length === 0 ? (
-                <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
-                    No quotations generated yet. Click <strong>"New Quotation"</strong> above to start.
-                  </td>
-                </tr>
-              ) : (
-                quotations.map((q: any) => {
-                  const total = q.items?.reduce((sum: number, item: any) => sum + Number(item.line_amount || 0), 0) || 0;
-                  return (
-                    <tr key={q.id}>
-                      <td>
-                        <span style={{ fontWeight: 700, color: 'var(--primary-dark)', fontFamily: 'var(--font-mono)' }}>
-                          {q.quotation_number}
-                        </span>
-                      </td>
-                      <td style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', fontSize: '0.82rem' }}>
-                        {q.enquiry?.enquiry_number || '-'}
-                      </td>
-                      <td>
-                        <div style={{ fontWeight: 600, color: '#0f172a' }}>{q.enquiry?.customer?.company_name || 'N/A'}</div>
-                      </td>
-                      <td>{new Date(q.valid_until).toLocaleDateString()}</td>
-                      <td>
-                        <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>
-                          ₹{total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </strong>
-                      </td>
-                      <td>
-                        <span className={`badge badge-${q.status.toLowerCase()}`}>
-                          {q.status}
-                        </span>
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                          {user?.role === 'SALES' && q.status === 'DRAFT' && (
+            ) : quotations.length === 0 ? (
+              <tr>
+                <td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)' }}>
+                  No quotations created yet.
+                </td>
+              </tr>
+            ) : (
+              quotations.map((q: any) => {
+                const total = q.items?.reduce((sum: number, item: any) => sum + Number(item.line_amount || 0), 0) || 0;
+                return (
+                  <tr key={q.id}>
+                    <td><strong>{q.quotation_number}</strong></td>
+                    <td>{q.enquiry?.enquiry_number || '-'}</td>
+                    <td>{q.enquiry?.customer?.company_name || 'N/A'}</td>
+                    <td>{new Date(q.valid_until).toLocaleDateString()}</td>
+                    <td><strong>₹{total.toFixed(2)}</strong></td>
+                    <td>
+                      <span className={`badge badge-${q.status.toLowerCase()}`}>
+                        {q.status}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                        {user?.role === 'SALES' && q.status === 'DRAFT' && (
+                          <button 
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => handleStatusChange(q.id, 'SENT')}
+                          >
+                            Mark Sent
+                          </button>
+                        )}
+
+                        {user?.role === 'SALES' && q.status === 'SENT' && (
+                          <>
                             <button 
-                              className="btn btn-warning btn-sm"
-                              onClick={() => handleStatusChange(q.id, 'SENT')}
+                              className="btn btn-success btn-sm"
+                              onClick={() => handleStatusChange(q.id, 'ACCEPTED')}
                             >
-                              Mark Sent
+                              Accept
                             </button>
-                          )}
-
-                          {user?.role === 'SALES' && q.status === 'SENT' && (
-                            <>
-                              <button 
-                                className="btn btn-success btn-sm"
-                                onClick={() => handleStatusChange(q.id, 'ACCEPTED')}
-                              >
-                                <IconCheck />
-                                <span>Accept</span>
-                              </button>
-                              <button 
-                                className="btn btn-danger btn-sm"
-                                onClick={() => handleStatusChange(q.id, 'REJECTED')}
-                              >
-                                <IconClose />
-                                <span>Reject</span>
-                              </button>
-                            </>
-                          )}
-
-                          {user?.role === 'SALES' && q.status === 'ACCEPTED' && (
                             <button 
-                              className="btn btn-primary btn-sm"
-                              onClick={() => handleConvert(q.id)}
+                              className="btn btn-danger btn-sm"
+                              onClick={() => handleStatusChange(q.id, 'REJECTED')}
                             >
-                              <span>Convert to Sales Order →</span>
+                              Reject
                             </button>
-                          )}
+                          </>
+                        )}
 
-                          {q.status === 'WON' && (
-                            <span style={{ fontSize: '0.78rem', color: 'var(--success-text)', fontWeight: 600 }}>
-                              ✓ Order Generated
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                        {user?.role === 'SALES' && q.status === 'ACCEPTED' && (
+                          <button 
+                            className="btn btn-primary btn-sm"
+                            onClick={() => handleConvert(q.id)}
+                          >
+                            Convert to Order
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
