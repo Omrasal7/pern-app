@@ -2,6 +2,7 @@
 import { useState, useEffect, useContext } from 'react';
 import api from '../services/api';
 import { AuthContext } from '../context/AuthContext';
+import { IconPlus, IconClose } from '../components/Icons';
 
 const Enquiries = () => {
   const [enquiries, setEnquiries] = useState<any[]>([]);
@@ -91,7 +92,7 @@ const Enquiries = () => {
         })),
       });
 
-      setSuccessMsg('Customer enquiry created successfully');
+      setSuccessMsg('Customer enquiry registered successfully');
       setShowForm(false);
       setForm({
         enquiry_number: `ENQ-${Date.now().toString().slice(-6)}`,
@@ -115,36 +116,83 @@ const Enquiries = () => {
     }
   };
 
+  // Metrics
+  const totalCount = enquiries.length;
+  const newCount = enquiries.filter(e => e.status === 'NEW').length;
+  const quotedCount = enquiries.filter(e => e.status === 'QUOTED').length;
+  const wonCount = enquiries.filter(e => e.status === 'WON').length;
+
   return (
     <div>
+      {/* Top Header */}
       <div className="page-header">
-        <div>
-          <h1 className="page-title">Customer Enquiries</h1>
-          <p className="page-subtitle">Manage customer requirements and initial enquiry records</p>
+        <div className="page-title-group">
+          <h1>Customer Enquiries</h1>
+          <p>Record customer product demands and manage incoming quotation requests</p>
         </div>
         {user?.role === 'SALES' && (
           <button 
             className={`btn ${showForm ? 'btn-secondary' : 'btn-primary'}`} 
             onClick={() => { setShowForm(!showForm); setError(''); }}
           >
-            {showForm ? 'Close Form' : '+ Create Enquiry'}
+            {showForm ? <IconClose /> : <IconPlus />}
+            <span>{showForm ? 'Close Form' : 'New Enquiry'}</span>
           </button>
         )}
       </div>
 
-      {successMsg && <div className="alert alert-success">{successMsg}</div>}
-      {error && !showForm && <div className="alert alert-danger">{error}</div>}
+      {/* KPI Stats Row */}
+      <div className="stats-grid">
+        <div className="stat-card">
+          <div className="stat-icon blue">📋</div>
+          <div className="stat-info">
+            <span className="stat-label">Total Enquiries</span>
+            <span className="stat-value">{totalCount}</span>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon amber">⏳</div>
+          <div className="stat-info">
+            <span className="stat-label">New / Pending</span>
+            <span className="stat-value">{newCount}</span>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon purple">📑</div>
+          <div className="stat-info">
+            <span className="stat-label">Quoted</span>
+            <span className="stat-value">{quotedCount}</span>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon green">🏆</div>
+          <div className="stat-info">
+            <span className="stat-label">Orders Won</span>
+            <span className="stat-value">{wonCount}</span>
+          </div>
+        </div>
+      </div>
+
+      {successMsg && <div className="alert alert-success">✓ {successMsg}</div>}
+      {error && !showForm && <div className="alert alert-danger">⚠ {error}</div>}
 
       {/* Form Container */}
       {showForm && (
         <div className="card">
-          <h2 className="card-title">Create New Customer Enquiry</h2>
-          {error && <div className="alert alert-danger">{error}</div>}
+          <div className="card-header">
+            <h2 className="card-title">Create New Customer Enquiry</h2>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Role: Sales User</span>
+          </div>
+
+          {error && <div className="alert alert-danger">⚠ {error}</div>}
 
           <form onSubmit={handleSubmit}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem' }}>
               <div className="form-group">
-                <label className="form-label">Enquiry Number</label>
+                <label className="form-label">Enquiry Reference Number</label>
                 <input 
                   type="text"
                   className="form-control" 
@@ -155,7 +203,7 @@ const Enquiries = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Required Date</label>
+                <label className="form-label">Required Delivery By</label>
                 <input 
                   type="date" 
                   className="form-control" 
@@ -168,16 +216,16 @@ const Enquiries = () => {
 
             {/* Customer Section */}
             <div className="form-group" style={{ marginTop: '0.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                <label className="form-label" style={{ margin: 0 }}>Customer</label>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                <label className="form-label" style={{ margin: 0 }}>Customer Details</label>
+                <label style={{ fontSize: '0.82rem', color: 'var(--primary)', cursor: 'pointer', fontWeight: 600 }}>
                   <input 
                     type="checkbox" 
                     checked={form.newCustomer}
                     onChange={e => setForm({ ...form, newCustomer: e.target.checked })} 
                     style={{ marginRight: '0.35rem' }}
                   />
-                  Add New Customer
+                  + Register New Customer
                 </label>
               </div>
 
@@ -188,32 +236,32 @@ const Enquiries = () => {
                   onChange={e => setForm({ ...form, customer_id: e.target.value })} 
                   required
                 >
-                  <option value="">-- Select Existing Customer --</option>
+                  <option value="">-- Choose Existing Customer --</option>
                   {customers.map((c: any) => (
                     <option key={c.id} value={c.id}>
-                      {c.company_name} ({c.contact_person} - {c.city})
+                      {c.company_name} ({c.contact_person} • {c.city})
                     </option>
                   ))}
                 </select>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', padding: '0.75rem', background: '#f8fafc', border: '1px solid var(--border)', borderRadius: '4px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.85rem', padding: '1rem', background: '#f8fafc', border: '1.5px dashed var(--border-light)', borderRadius: 'var(--radius-sm)' }}>
                   <input 
                     className="form-control" 
-                    placeholder="Company Name" 
+                    placeholder="Company Name *" 
                     value={form.company_name}
                     onChange={e => setForm({ ...form, company_name: e.target.value })} 
                     required={form.newCustomer} 
                   />
                   <input 
                     className="form-control" 
-                    placeholder="Contact Person" 
+                    placeholder="Contact Person *" 
                     value={form.contact_person}
                     onChange={e => setForm({ ...form, contact_person: e.target.value })} 
                     required={form.newCustomer} 
                   />
                   <input 
                     className="form-control" 
-                    placeholder="Mobile" 
+                    placeholder="Mobile Number *" 
                     value={form.mobile}
                     onChange={e => setForm({ ...form, mobile: e.target.value })} 
                     required={form.newCustomer} 
@@ -221,14 +269,14 @@ const Enquiries = () => {
                   <input 
                     type="email" 
                     className="form-control" 
-                    placeholder="Email" 
+                    placeholder="Email Address *" 
                     value={form.email}
                     onChange={e => setForm({ ...form, email: e.target.value })} 
                     required={form.newCustomer} 
                   />
                   <input 
                     className="form-control" 
-                    placeholder="City" 
+                    placeholder="City *" 
                     value={form.city}
                     onChange={e => setForm({ ...form, city: e.target.value })} 
                     required={form.newCustomer} 
@@ -238,10 +286,10 @@ const Enquiries = () => {
             </div>
 
             {/* Products List */}
-            <div className="form-group" style={{ marginTop: '1rem' }}>
-              <label className="form-label">Required Products</label>
+            <div className="form-group" style={{ marginTop: '1.25rem' }}>
+              <label className="form-label">Required Products & Quantities</label>
               {items.map((item, i) => (
-                <div key={i} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', alignItems: 'center' }}>
+                <div key={i} style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.65rem', alignItems: 'center' }}>
                   <select 
                     className="form-control" 
                     value={item.product_id}
@@ -251,7 +299,7 @@ const Enquiries = () => {
                     <option value="">-- Select Product --</option>
                     {products.map((p: any) => (
                       <option key={p.id} value={p.id}>
-                        {p.product_code} - {p.name} ({p.unit})
+                        {p.product_code} — {p.name} ({p.unit})
                       </option>
                     ))}
                   </select>
@@ -260,21 +308,21 @@ const Enquiries = () => {
                     type="number" 
                     min="1" 
                     className="form-control" 
-                    placeholder="Qty" 
+                    placeholder="Quantity" 
                     value={item.quantity}
                     onChange={e => updateItem(i, 'quantity', e.target.value)}
-                    style={{ width: '100px' }} 
+                    style={{ width: '130px' }} 
                     required 
                   />
 
                   {items.length > 1 && (
                     <button 
                       type="button" 
-                      className="btn btn-secondary btn-sm"
+                      className="btn btn-danger btn-sm"
                       onClick={() => removeItem(i)}
-                      title="Remove product"
+                      title="Remove row"
                     >
-                      ✕
+                      <IconClose />
                     </button>
                   )}
                 </div>
@@ -286,24 +334,25 @@ const Enquiries = () => {
                 style={{ marginTop: '0.25rem' }}
                 onClick={addItem}
               >
-                + Add Another Product
+                <IconPlus />
+                <span>Add Product Line</span>
               </button>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Notes (Optional)</label>
+              <label className="form-label">Special Notes / Requirements</label>
               <textarea 
                 className="form-control" 
                 rows={2} 
                 value={form.notes}
                 onChange={e => setForm({ ...form, notes: e.target.value })} 
-                placeholder="Any specific delivery or technical requirements..."
+                placeholder="e.g. Needs immediate quotation, standard industrial warranty requested."
               />
             </div>
 
-            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.25rem' }}>
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
               <button type="submit" className="btn btn-primary" disabled={loading}>
-                {loading ? 'Saving Enquiry...' : 'Save Enquiry'}
+                {loading ? 'Submitting Enquiry...' : 'Submit Enquiry'}
               </button>
               <button 
                 type="button" 
@@ -317,52 +366,63 @@ const Enquiries = () => {
         </div>
       )}
 
-      {/* Enquiries Table */}
-      <div className="table-responsive">
-        <table>
-          <thead>
-            <tr>
-              <th>Enquiry No.</th>
-              <th>Date</th>
-              <th>Customer</th>
-              <th>Required By</th>
-              <th>Requested Products</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {tableLoading ? (
+      {/* Enquiries Table Card */}
+      <div className="table-card">
+        <div className="table-responsive">
+          <table>
+            <thead>
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)' }}>
-                  Loading enquiries...
-                </td>
+                <th>Enquiry No.</th>
+                <th>Enquiry Date</th>
+                <th>Customer Name</th>
+                <th>Required Date</th>
+                <th>Requested Products</th>
+                <th>Status</th>
               </tr>
-            ) : enquiries.length === 0 ? (
-              <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)' }}>
-                  No customer enquiries found. Click "+ Create Enquiry" to add one.
-                </td>
-              </tr>
-            ) : (
-              enquiries.map((enq: any) => (
-                <tr key={enq.id}>
-                  <td><strong>{enq.enquiry_number}</strong></td>
-                  <td>{new Date(enq.enquiry_date).toLocaleDateString()}</td>
-                  <td>{enq.customer?.company_name || 'N/A'}</td>
-                  <td>{new Date(enq.required_date).toLocaleDateString()}</td>
-                  <td style={{ fontSize: '0.8rem', color: '#475569' }}>
-                    {enq.items?.map((item: any) => `${item.product?.name} (${item.quantity} ${item.product?.unit || ''})`).join(', ') || '-'}
-                  </td>
-                  <td>
-                    <span className={`badge badge-${enq.status.toLowerCase()}`}>
-                      {enq.status}
-                    </span>
+            </thead>
+            <tbody>
+              {tableLoading ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                    Loading customer enquiries...
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : enquiries.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
+                    No customer enquiries registered yet. Click <strong>"New Enquiry"</strong> above to start.
+                  </td>
+                </tr>
+              ) : (
+                enquiries.map((enq: any) => (
+                  <tr key={enq.id}>
+                    <td>
+                      <span style={{ fontWeight: 700, color: 'var(--primary-dark)', fontFamily: 'var(--font-mono)' }}>
+                        {enq.enquiry_number}
+                      </span>
+                    </td>
+                    <td>{new Date(enq.enquiry_date).toLocaleDateString()}</td>
+                    <td>
+                      <div style={{ fontWeight: 600, color: '#0f172a' }}>{enq.customer?.company_name || 'N/A'}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{enq.customer?.city}</div>
+                    </td>
+                    <td>{new Date(enq.required_date).toLocaleDateString()}</td>
+                    <td>
+                      <div style={{ fontSize: '0.82rem', color: '#334155' }}>
+                        {enq.items?.map((item: any) => `${item.product?.name} × ${item.quantity}`).join(', ') || 'None'}
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`badge badge-${enq.status.toLowerCase()}`}>
+                        {enq.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
